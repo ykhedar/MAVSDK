@@ -17,7 +17,8 @@ target_sources(mavsdk
     global_include.cpp
     http_loader.cpp
     mavlink_channels.cpp
-    mavlink_commands.cpp
+    mavlink_command_receiver.cpp
+    mavlink_command_sender.cpp
     mavlink_mission_transfer.cpp
     mavlink_parameters.cpp
     mavlink_receiver.cpp
