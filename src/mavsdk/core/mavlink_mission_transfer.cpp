@@ -1,6 +1,7 @@
 #include <algorithm>
 #include "mavlink_mission_transfer.h"
 #include "log.h"
+#include "unused.h"
 
 namespace mavsdk {
 
@@ -16,7 +17,10 @@ MAVLinkMissionTransfer::MAVLinkMissionTransfer(
 {}
 
 std::weak_ptr<MAVLinkMissionTransfer::WorkItem> MAVLinkMissionTransfer::upload_items_async(
-    uint8_t type, const std::vector<ItemInt>& items, ResultCallback callback)
+    uint8_t type,
+    const std::vector<ItemInt>& items,
+    const ResultCallback& callback,
+    const ProgressCallback& progress_callback)
 {
     if (!_int_messages_supported) {
         if (callback) {
@@ -27,15 +31,22 @@ std::weak_ptr<MAVLinkMissionTransfer::WorkItem> MAVLinkMissionTransfer::upload_i
     }
 
     auto ptr = std::make_shared<UploadWorkItem>(
-        _sender, _message_handler, _timeout_handler, type, items, _timeout_s_callback(), callback);
+        _sender,
+        _message_handler,
+        _timeout_handler,
+        type,
+        items,
+        _timeout_s_callback(),
+        callback,
+        progress_callback);
 
     _work_queue.push_back(ptr);
 
     return std::weak_ptr<WorkItem>(ptr);
 }
 
-std::weak_ptr<MAVLinkMissionTransfer::WorkItem>
-MAVLinkMissionTransfer::download_items_async(uint8_t type, ResultAndItemsCallback callback)
+std::weak_ptr<MAVLinkMissionTransfer::WorkItem> MAVLinkMissionTransfer::download_items_async(
+    uint8_t type, ResultAndItemsCallback callback, ProgressCallback progress_callback)
 {
     if (!_int_messages_supported) {
         if (callback) {
@@ -46,7 +57,13 @@ MAVLinkMissionTransfer::download_items_async(uint8_t type, ResultAndItemsCallbac
     }
 
     auto ptr = std::make_shared<DownloadWorkItem>(
-        _sender, _message_handler, _timeout_handler, type, _timeout_s_callback(), callback);
+        _sender,
+        _message_handler,
+        _timeout_handler,
+        type,
+        _timeout_s_callback(),
+        callback,
+        progress_callback);
 
     _work_queue.push_back(ptr);
 
@@ -153,10 +170,12 @@ MAVLinkMissionTransfer::UploadWorkItem::UploadWorkItem(
     uint8_t type,
     const std::vector<ItemInt>& items,
     double timeout_s,
-    ResultCallback callback) :
+    ResultCallback callback,
+    ProgressCallback progress_callback) :
     WorkItem(sender, message_handler, timeout_handler, type, timeout_s),
     _items(items),
-    _callback(callback)
+    _callback(callback),
+    _progress_callback(progress_callback)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -216,6 +235,8 @@ void MAVLinkMissionTransfer::UploadWorkItem::start()
         callback_and_reset(Result::MissionTypeNotConsistent);
         return;
     }
+
+    update_progress(0.0f);
 
     _retries_done = 0;
     _step = Step::SendCount;
@@ -360,6 +381,10 @@ void MAVLinkMissionTransfer::UploadWorkItem::process_mission_request_int(
     _timeout_handler.refresh(_cookie);
 
     _next_sequence = request_int.seq;
+
+    // We add in a step for the final ack, so plus one.
+    update_progress(static_cast<float>(_next_sequence + 1) / static_cast<float>(_items.size() + 1));
+
     send_mission_item();
 }
 
@@ -458,6 +483,7 @@ void MAVLinkMissionTransfer::UploadWorkItem::process_mission_ack(const mavlink_m
     }
 
     if (_next_sequence == _items.size()) {
+        update_progress(1.0f);
         callback_and_reset(Result::Success);
     } else {
         callback_and_reset(Result::ProtocolError);
@@ -506,9 +532,11 @@ MAVLinkMissionTransfer::DownloadWorkItem::DownloadWorkItem(
     TimeoutHandler& timeout_handler,
     uint8_t type,
     double timeout_s,
-    ResultAndItemsCallback callback) :
+    ResultAndItemsCallback callback,
+    ProgressCallback progress_callback) :
     WorkItem(sender, message_handler, timeout_handler, type, timeout_s),
-    _callback(callback)
+    _callback(callback),
+    _progress_callback(progress_callback)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -523,6 +551,13 @@ MAVLinkMissionTransfer::DownloadWorkItem::DownloadWorkItem(
         this);
 }
 
+void MAVLinkMissionTransfer::UploadWorkItem::update_progress(float progress)
+{
+    if (_progress_callback != nullptr) {
+        _progress_callback(progress);
+    }
+}
+
 MAVLinkMissionTransfer::DownloadWorkItem::~DownloadWorkItem()
 {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -533,6 +568,8 @@ MAVLinkMissionTransfer::DownloadWorkItem::~DownloadWorkItem()
 
 void MAVLinkMissionTransfer::DownloadWorkItem::start()
 {
+    update_progress(0.0f);
+
     std::lock_guard<std::mutex> lock(_mutex);
 
     _items.clear();
@@ -682,11 +719,13 @@ void MAVLinkMissionTransfer::DownloadWorkItem::process_mission_item_int(
 
     if (_next_sequence + 1 == _expected_count) {
         _timeout_handler.remove(_cookie);
+        update_progress(1.0f);
         send_ack_and_finish();
 
     } else {
         _next_sequence = item_int.seq + 1;
         _retries_done = 0;
+        update_progress(static_cast<float>(_next_sequence) / static_cast<float>(_expected_count));
         request_item();
     }
 }
@@ -720,6 +759,13 @@ void MAVLinkMissionTransfer::DownloadWorkItem::callback_and_reset(Result result)
     }
     _callback = nullptr;
     _done = true;
+}
+
+void MAVLinkMissionTransfer::DownloadWorkItem::update_progress(float progress)
+{
+    if (_progress_callback != nullptr) {
+        _progress_callback(progress);
+    }
 }
 
 MAVLinkMissionTransfer::ReceiveIncomingMission::ReceiveIncomingMission(
