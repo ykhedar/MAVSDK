@@ -132,7 +132,7 @@ elif [[ "${APM_VERSION}" ]]; then
             -w \
             --frame ${APM_FRAME} \
             --no-rebuild \
-            --speedup 10 \
+            --speedup 3 \
             -m "--out=udp:127.0.0.1:14540"
     
     # Go back to dir where we started

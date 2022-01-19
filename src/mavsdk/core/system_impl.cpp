@@ -1002,6 +1002,7 @@ SystemImpl::make_command_ardupilot_mode(FlightMode flight_mode, uint8_t componen
 
     return std::make_pair<>(MavlinkCommandSender::Result::Success, command);
 }
+
 ardupilot::RoverMode SystemImpl::flight_mode_to_ardupilot_rover_mode(FlightMode flight_mode)
 {
     switch (flight_mode) {
@@ -1038,25 +1039,32 @@ ardupilot::CopterMode SystemImpl::flight_mode_to_ardupilot_copter_mode(FlightMod
         case FlightMode::Acro:
             return ardupilot::CopterMode::Acro;
         case FlightMode::Hold:
-            return ardupilot::CopterMode::Alt_Hold;
+            return ardupilot::CopterMode::Loiter;
         case FlightMode::ReturnToLaunch:
             return ardupilot::CopterMode::RTL;
         case FlightMode::Land:
             return ardupilot::CopterMode::Land;
         case FlightMode::Manual:
+            return ardupilot::CopterMode::Guided;
         case FlightMode::FollowMe:
-        case FlightMode::Unknown:
-        case FlightMode::Ready:
-        case FlightMode::Takeoff:
+            return ardupilot::CopterMode::Follow;
         case FlightMode::Offboard:
+            return ardupilot::CopterMode::Guided;
         case FlightMode::Altctl:
+            return ardupilot::CopterMode::Alt_Hold;
         case FlightMode::Posctl:
-        case FlightMode::Rattitude:
+            return ardupilot::CopterMode::POS_HOLD;
         case FlightMode::Stabilized:
+            return ardupilot::CopterMode::Stabilize;
+        // case FlightMode::Rattitude:
+        // case FlightMode::Unknown:
+        // case FlightMode::Ready:
+        // case FlightMode::Takeoff:
         default:
             return ardupilot::CopterMode::Unknown;
     }
 }
+
 
 std::pair<MavlinkCommandSender::Result, MavlinkCommandSender::CommandLong>
 SystemImpl::make_command_px4_mode(FlightMode flight_mode, uint8_t component_id)
@@ -1176,12 +1184,17 @@ SystemImpl::FlightMode SystemImpl::to_flight_mode_from_ardupilot_copter_mode(uin
         case ardupilot::CopterMode::Alt_Hold:
         case ardupilot::CopterMode::POS_HOLD:
         case ardupilot::CopterMode::Flow_Hold:
+        case ardupilot::CopterMode::Loiter:
             return FlightMode::Hold;
         case ardupilot::CopterMode::RTL:
         case ardupilot::CopterMode::Auto_RTL:
             return FlightMode::ReturnToLaunch;
         case ardupilot::CopterMode::Land:
             return FlightMode::Land;
+        case ardupilot::CopterMode::Stabilize: // 0
+            return FlightMode::Stabilized;
+        case ardupilot::CopterMode::Guided: // 4
+            return FlightMode::Offboard;
         default:
             return FlightMode::Unknown;
     }
