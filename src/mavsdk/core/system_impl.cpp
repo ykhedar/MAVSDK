@@ -1044,6 +1044,7 @@ ardupilot::CopterMode SystemImpl::flight_mode_to_ardupilot_copter_mode(FlightMod
         case FlightMode::Land:
             return ardupilot::CopterMode::Land;
         case FlightMode::Manual:
+            return ardupilot::CopterMode::Guided;
         case FlightMode::FollowMe:
         case FlightMode::Unknown:
         case FlightMode::Ready:
@@ -1053,10 +1054,12 @@ ardupilot::CopterMode SystemImpl::flight_mode_to_ardupilot_copter_mode(FlightMod
         case FlightMode::Posctl:
         case FlightMode::Rattitude:
         case FlightMode::Stabilized:
+            return ardupilot::CopterMode::Guided;
         default:
             return ardupilot::CopterMode::Unknown;
     }
 }
+
 
 std::pair<MavlinkCommandSender::Result, MavlinkCommandSender::CommandLong>
 SystemImpl::make_command_px4_mode(FlightMode flight_mode, uint8_t component_id)
@@ -1182,6 +1185,10 @@ SystemImpl::FlightMode SystemImpl::to_flight_mode_from_ardupilot_copter_mode(uin
             return FlightMode::ReturnToLaunch;
         case ardupilot::CopterMode::Land:
             return FlightMode::Land;
+        case ardupilot::CopterMode::Stabilize: // 0
+            return FlightMode::Stabilized;
+        case ardupilot::CopterMode::Guided: // 4
+            return FlightMode::Manual;
         default:
             return FlightMode::Unknown;
     }

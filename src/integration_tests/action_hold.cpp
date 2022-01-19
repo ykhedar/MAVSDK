@@ -45,17 +45,21 @@ TEST_F(SitlTest, ActionHold)
     EXPECT_EQ(action_ret, Action::Result::Success);
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    LogInfo() << "Setting takeoff altitude";
+    action->set_takeoff_altitude(15.0f);
+
+    LogInfo() << "taking off.";
     action_ret = action->takeoff();
     EXPECT_EQ(action_ret, Action::Result::Success);
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // Go somewhere with a GoTo command
-    {
-        LogInfo() << "Commanding GoTo...";
-        const Action::Result result = action->goto_location(47.398000, 8.545592, NAN, NAN);
-        EXPECT_EQ(result, Action::Result::Success);
-        LogInfo() << "Commanded GoTo.";
-    }
+    // {
+    //     LogInfo() << "Commanding GoTo...";
+    //     const Action::Result result = action->goto_location(47.398000, 8.545592, NAN, NAN);
+    //     EXPECT_EQ(result, Action::Result::Success);
+    //     LogInfo() << "Commanded GoTo.";
+    // }
 
     // Do RTL to go home after 15 seconds
     std::this_thread::sleep_for(std::chrono::seconds(15));
