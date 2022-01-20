@@ -915,24 +915,27 @@ void MAVLinkParameters::process_param_ext_request_read(const mavlink_message_t& 
 bool MAVLinkParameters::ParamValue::set_from_mavlink_param_value(
     const mavlink_param_value_t& mavlink_value)
 {
-    union {
-        float float_value;
-        int32_t int32_value;
-    } temp{};
+    // union {
+    //     float float_value;
+    //     int32_t int32_value;
+    // } temp{};
 
-    temp.float_value = mavlink_value.param_value;
+    //temp.int32_value = mavlink_value.param_value;
+    LogInfo() << "Info: mavlink param type: " << mavlink_value.param_type << " Value is: " << mavlink_value.param_value;
     switch (mavlink_value.param_type) {
-        case MAV_PARAM_TYPE_UINT32:
-        // FALLTHROUGH
-        case MAV_PARAM_TYPE_INT32:
-            _value = temp.int32_value;
+        case MAV_PARAM_TYPE_INT8: 
+        case MAV_PARAM_TYPE_INT16: 
+        case MAV_PARAM_TYPE_INT32: {
+            int32_t temp = mavlink_value.param_value;
+            _value = temp; }
             break;
-        case MAV_PARAM_TYPE_REAL32:
-            _value = temp.float_value;
+        case MAV_PARAM_TYPE_REAL32: {
+            float temp = mavlink_value.param_value;
+            _value = temp; }
             break;
         default:
             // This would be worrying
-            LogErr() << "Error: unknown mavlink param type";
+            LogErr() << "Error: unknown mavlink param type: ";
             return false;
     }
     return true;
