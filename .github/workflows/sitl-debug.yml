@@ -4,6 +4,11 @@ on:
   push:
     branches:
     - 'actions-apm'
+    tags:
+    - 'v*'
+  pull_request:
+    branches:
+    - '*'
 
 jobs:
   dockcross-manylinux2010-x64:
