@@ -237,6 +237,8 @@ MissionRawImpl::convert_mission_raw(const MissionRaw::MissionItem transfer_missi
     new_item_int.z = transfer_mission_raw.z;
     new_item_int.mission_type = transfer_mission_raw.mission_type;
 
+    std::cout << "Created Mission Item:   " << transfer_mission_raw.seq << " " << transfer_mission_raw.frame << " " << transfer_mission_raw.command << " " << transfer_mission_raw.current << " " << transfer_mission_raw.autocontinue << " " << transfer_mission_raw.mission_type << "\n" ;
+    std::cout << "Converted Mission Item: " << new_item_int.seq << " " << unsigned(new_item_int.frame) << " " << new_item_int.command << " " << unsigned(new_item_int.current) << " " << unsigned(new_item_int.autocontinue) << " " << unsigned(new_item_int.mission_type)  << "\n";
     return new_item_int;
 }
 

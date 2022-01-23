@@ -921,18 +921,35 @@ bool MAVLinkParameters::ParamValue::set_from_mavlink_param_value(
     // } temp{};
 
     //temp.int32_value = mavlink_value.param_value;
-    LogInfo() << "Info: mavlink param type: " << mavlink_value.param_type << " Value is: " << mavlink_value.param_value;
+    uint8_t par_type = mavlink_value.param_type;
+    std::string param_id = extract_safe_param_id(mavlink_value.param_id);
+
+    
     switch (mavlink_value.param_type) {
-        case MAV_PARAM_TYPE_INT8: 
-        case MAV_PARAM_TYPE_INT16: 
-        case MAV_PARAM_TYPE_INT32: {
-            int32_t temp = mavlink_value.param_value;
-            _value = temp; }
+        case MAV_PARAM_TYPE_INT8: {
+            int8_t temp = mavlink_value.param_value;  // Sadly mavlink_value.param_value is a float value so there will be round off errors.
+            _value = temp; 
+            LogInfo() << param_id << " " << mavlink_value.param_value << " " << temp << " MAV_PARAM_TYPE_INT8 "; }
             break;
+
+        case MAV_PARAM_TYPE_INT16: {
+            int16_t temp = mavlink_value.param_value;  // Sadly mavlink_value.param_value is a float value so there will be round off errors.
+            _value = temp;
+            LogInfo() << param_id << " " << mavlink_value.param_value << " " << temp << " MAV_PARAM_TYPE_INT16 "; }
+            break;
+    
+        case MAV_PARAM_TYPE_INT32: {
+            int32_t temp = mavlink_value.param_value;  // Sadly mavlink_value.param_value is a float value so there will be round off errors.
+            _value = temp; 
+            LogInfo() << param_id << " " << mavlink_value.param_value << " " << temp << " MAV_PARAM_TYPE_INT32 "; }
+            break;
+
         case MAV_PARAM_TYPE_REAL32: {
             float temp = mavlink_value.param_value;
-            _value = temp; }
+            _value = temp; 
+            LogInfo() << param_id << " " << mavlink_value.param_value << " " << temp << " MAV_PARAM_TYPE_REAL32 "; }
             break;
+
         default:
             // This would be worrying
             LogErr() << "Error: unknown mavlink param type: ";

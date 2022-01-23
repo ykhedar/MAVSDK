@@ -44,8 +44,8 @@ screen -dmS ardupilot python3 ./Tools/autotest/sim_vehicle.py \
         -w \
         --frame quad \
         --no-rebuild \
-        --speedup 3 \
-        -m "--out=udp:127.0.0.1:14540"
+        --speedup 1 \
+        -m "--out=udp:127.0.0.1:14540 --out=udp:localhost:14550"
 
 # Go back to dir where we started
 popd

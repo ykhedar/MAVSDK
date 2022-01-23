@@ -235,24 +235,44 @@ void ActionImpl::arm_async(const Action::ResultCallback& callback) const
                 command_result_callback(result, callback);
             });
     };
-
-    if (_parent->get_flight_mode() == SystemImpl::FlightMode::Mission ||
-        _parent->get_flight_mode() == SystemImpl::FlightMode::ReturnToLaunch) {
-        _parent->set_flight_mode_async(
-            SystemImpl::FlightMode::Hold,
-            [callback, send_arm_command](MavlinkCommandSender::Result result, float) {
-                Action::Result action_result = action_result_from_command_result(result);
-                if (action_result != Action::Result::Success) {
-                    if (callback) {
-                        callback(action_result);
+    if (_parent->autopilot() == SystemImpl::Autopilot::ArduPilot) {
+        
+        if (_parent->get_flight_mode() != SystemImpl::FlightMode::Offboard) {
+            _parent->set_flight_mode_async(
+                SystemImpl::FlightMode::Offboard,
+                [callback, send_arm_command](MavlinkCommandSender::Result result, float) {
+                    Action::Result action_result = action_result_from_command_result(result);
+                    if (action_result != Action::Result::Success) {
+                        if (callback) {
+                            callback(action_result);
+                        }
                     }
-                }
-                send_arm_command();
-            });
-        return;
+                    send_arm_command();
+                });
+            return;
+        }
+        send_arm_command();
     }
+    else {
+        if (_parent->get_flight_mode() == SystemImpl::FlightMode::Mission ||
+        _parent->get_flight_mode() == SystemImpl::FlightMode::ReturnToLaunch) {
+            _parent->set_flight_mode_async(
+                SystemImpl::FlightMode::Hold,
+                [callback, send_arm_command](MavlinkCommandSender::Result result, float) {
+                    Action::Result action_result = action_result_from_command_result(result);
+                    if (action_result != Action::Result::Success) {
+                        if (callback) {
+                            callback(action_result);
+                        }
+                    }
+                    send_arm_command();
+                });
+            return;
+        }
 
-    send_arm_command();
+        send_arm_command();
+    }
+    
 }
 
 void ActionImpl::disarm_async(const Action::ResultCallback& callback) const
@@ -360,7 +380,7 @@ void ActionImpl::takeoff_async(const Action::ResultCallback& callback) const
         };
         
         _parent->set_flight_mode_async(
-            SystemImpl::FlightMode::Stabilized,
+            SystemImpl::FlightMode::Offboard,
             [callback, send_takeoff_command](MavlinkCommandSender::Result result, float) {
                 Action::Result action_result = action_result_from_command_result(result);
                 if (action_result != Action::Result::Success) {
@@ -368,6 +388,8 @@ void ActionImpl::takeoff_async(const Action::ResultCallback& callback) const
                         callback(action_result);
                     }
                 }
+                
+                std::cout << "Taking off cmmand being sent " << std::endl;
                 send_takeoff_command();
             });
             return;
