@@ -36,7 +36,7 @@ jobs:
           asset_name: 'mavsdk_server_manylinux2010-x64'
           tag: ${{ github.ref }}
           overwrite: true
-          
+
   macOS:
     name: ${{ matrix.name }}
     runs-on: macos-latest
@@ -87,6 +87,7 @@ jobs:
           asset_name: 'mavsdk_server_macos'
           tag: ${{ github.ref }}
           overwrite: true
+
 
   apm-sitl-newer:
     name: APM SITL ${{ matrix.apm_version }} (ubuntu-20.04)
