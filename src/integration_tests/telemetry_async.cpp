@@ -73,60 +73,49 @@ TEST_F(SitlTest, TelemetryAsync)
 
     auto telemetry = std::make_shared<Telemetry>(system);
 
-    std::cout << "1: " << '\n';
     telemetry->set_rate_position_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "2: "  << '\n';
     telemetry->set_rate_home_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "3: "  << '\n';
     telemetry->set_rate_in_air_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "5: "  << '\n';
     telemetry->set_rate_attitude_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "6: "  << '\n';
     telemetry->set_rate_velocity_ned_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "7: "  << '\n';
     //telemetry->set_rate_imu_async(
-    //    10.0, [](Telemetry::Result result) { return receive_result(result); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //    10.0, [](Telemetry::Result result) { return receive_result(result); }); // Fails for APM
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "8: "  << '\n';
     telemetry->set_rate_gps_info_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "9: "  << '\n';
     telemetry->set_rate_battery_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "10: "  << '\n';
     //telemetry->set_rate_actuator_control_target_async(
-    //   10.0, [](Telemetry::Result result) { return receive_result(result); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //   10.0, [](Telemetry::Result result) { return receive_result(result); }); Fails for APM
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "11: " << '\n';
     telemetry->set_rate_fixedwing_metrics_async(
         10.0, [](Telemetry::Result result) { return receive_result(result); });
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    std::cout << "12: " << '\n';
     //telemetry->set_rate_ground_truth_async(
-    //    10.0, [](Telemetry::Result result) { return receive_result(result); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    //    10.0, [](Telemetry::Result result) { return receive_result(result); }); Fails for APM
+    //std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     telemetry->subscribe_position([](Telemetry::Position position) { print_position(position); });
 
