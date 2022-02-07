@@ -121,7 +121,6 @@ MissionRawImpl::upload_mission(std::vector<MissionRaw::MissionItem> mission_item
 {
     auto prom = std::promise<MissionRaw::Result>();
     auto fut = prom.get_future();
-
     upload_mission_async(
         mission_items, [&prom](MissionRaw::Result result) { prom.set_value(result); });
     return fut.get();
@@ -139,7 +138,6 @@ void MissionRawImpl::upload_mission_async(
         });
         return;
     }
-
     reset_mission_progress();
 
     const auto int_items = convert_to_int_items(mission_raw);
@@ -305,10 +303,10 @@ MissionRaw::Result MissionRawImpl::start_mission()
 void MissionRawImpl::start_mission_async(const MissionRaw::ResultCallback& callback)
 {
     _parent->set_flight_mode_async(
-        SystemImpl::FlightMode::Mission,
-        [this, callback](MavlinkCommandSender::Result result, float) {
-            report_flight_mode_change(callback, result);
-        });
+    SystemImpl::FlightMode::Mission,
+    [this, callback](MavlinkCommandSender::Result result, float) {
+        report_flight_mode_change(callback, result);
+    });
 }
 
 MissionRaw::Result MissionRawImpl::pause_mission()
@@ -510,19 +508,35 @@ MissionRaw::Result MissionRawImpl::convert_result(MAVLinkMissionTransfer::Result
         case MAVLinkMissionTransfer::Result::Cancelled:
             return MissionRaw::Result::TransferCancelled;
         case MAVLinkMissionTransfer::Result::MissionTypeNotConsistent:
+            std::cout << "MissionRawImpl::convert_result() MissionTypeNotConsistent" << std::endl;
             return MissionRaw::Result::InvalidArgument; // FIXME
         case MAVLinkMissionTransfer::Result::InvalidSequence:
+            std::cout << "MissionRawImpl::convert_result() InvalidSequence" << std::endl;
             return MissionRaw::Result::InvalidArgument; // FIXME
         case MAVLinkMissionTransfer::Result::CurrentInvalid:
+            std::cout << "MissionRawImpl::convert_result() CurrentInvalid" << std::endl;
             return MissionRaw::Result::InvalidArgument; // FIXME
         case MAVLinkMissionTransfer::Result::ProtocolError:
             return MissionRaw::Result::Error; // FIXME
         case MAVLinkMissionTransfer::Result::InvalidParam:
+            std::cout << "MissionRawImpl::convert_result() InvalidParam" << std::endl;
             return MissionRaw::Result::InvalidArgument; // FIXME
         case MAVLinkMissionTransfer::Result::IntMessagesNotSupported:
             return MissionRaw::Result::Unsupported; // FIXME
         default:
             return MissionRaw::Result::Unknown;
+    }
+}
+
+void MissionRawImpl::command_result_callback(
+    MavlinkCommandSender::Result command_result, const MissionRaw::ResultCallback& callback) const
+{
+    MissionRaw::Result mission_raw_result = command_result_to_mission_result(command_result);
+
+    if (callback) {
+        auto temp_callback = callback;
+        _parent->call_user_callback(
+            [temp_callback, mission_raw_result]() { temp_callback(mission_raw_result); });
     }
 }
 } // namespace mavsdk

@@ -43,10 +43,10 @@ TEST_F(SitlTest, PX4ActionHold)
     auto action = std::make_shared<Action>(system);
     Action::Result action_ret = action->arm();
     EXPECT_EQ(action_ret, Action::Result::Success);
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    //std::this_thread::sleep_for(std::chrono::seconds(1)); This delay makes APM Disarm because the SITL is running at 10x speedup.
 
-    action_ret = action->takeoff();
-    EXPECT_EQ(action_ret, Action::Result::Success);
+    Action::Result action_takeoff = action->takeoff();
+    EXPECT_EQ(action_takeoff, Action::Result::Success);
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     // Go somewhere with a GoTo command

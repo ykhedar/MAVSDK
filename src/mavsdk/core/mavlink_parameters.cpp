@@ -71,7 +71,7 @@ void MAVLinkParameters::set_param_async(
     // } else {
     //     LogDebug() << "setting param " << name << " to " << value.get_int();
     // }
-
+    
     if (name.size() > PARAM_ID_LEN) {
         LogErr() << "Error: param name too long";
         if (callback) {
@@ -311,7 +311,19 @@ void MAVLinkParameters::do_work()
                     work->param_value.get_mav_param_ext_type());
             } else {
                 // Param set is intended for Autopilot only.
-                mavlink_msg_param_set_pack(
+                if (_parent.autopilot() == SystemImpl::Autopilot::ArduPilot) {
+                    mavlink_msg_param_set_pack(
+                    _parent.get_own_system_id(),
+                    _parent.get_own_component_id(),
+                    &work->mavlink_message,
+                    _parent.get_system_id(),
+                    _parent.get_autopilot_id(),
+                    param_id,
+                    work->param_value.get_4_float_bytes_apm(),
+                    work->param_value.get_mav_param_type());
+                }
+                else {
+                    mavlink_msg_param_set_pack(
                     _parent.get_own_system_id(),
                     _parent.get_own_component_id(),
                     &work->mavlink_message,
@@ -320,6 +332,8 @@ void MAVLinkParameters::do_work()
                     param_id,
                     work->param_value.get_4_float_bytes(),
                     work->param_value.get_mav_param_type());
+                }
+                
             }
 
             if (!_parent.send_message(work->mavlink_message)) {
@@ -405,7 +419,8 @@ void MAVLinkParameters::do_work()
                     work->param_count,
                     work->param_index);
             } else {
-                mavlink_msg_param_value_pack(
+                if (_parent.autopilot() == SystemImpl::Autopilot::ArduPilot) {
+                    mavlink_msg_param_value_pack(
                     _parent.get_own_system_id(),
                     _parent.get_own_component_id(),
                     &work->mavlink_message,
@@ -414,6 +429,19 @@ void MAVLinkParameters::do_work()
                     work->param_value.get_mav_param_type(),
                     work->param_count,
                     work->param_index);
+                }
+                else {
+                    mavlink_msg_param_value_pack(
+                    _parent.get_own_system_id(),
+                    _parent.get_own_component_id(),
+                    &work->mavlink_message,
+                    param_id,
+                    work->param_value.get_4_float_bytes(),
+                    work->param_value.get_mav_param_type(),
+                    work->param_count,
+                    work->param_index);
+                }
+                
             }
 
             if (!_parent.send_message(work->mavlink_message)) {
@@ -505,17 +533,18 @@ void MAVLinkParameters::process_param_value(const mavlink_message_t& message)
         case WorkItem::Type::Get: {
             ParamValue value;
             value.set_from_mavlink_param_value(param_value);
-            if (value.is_same_type(work->param_value)) {
-                if (work->get_param_callback) {
-                    work->get_param_callback(MAVLinkParameters::Result::Success, value);
-                }
-            } else {
-                LogErr() << "Param types don't match";
-                ParamValue no_value;
-                if (work->get_param_callback) {
-                    work->get_param_callback(MAVLinkParameters::Result::WrongType, no_value);
-                }
-            }
+            work->get_param_callback(MAVLinkParameters::Result::Success, value);
+            // if (value.is_same_type(work->param_value)) {
+            //     if (work->get_param_callback) {
+            //         work->get_param_callback(MAVLinkParameters::Result::Success, value);
+            //     }
+            // } else {
+            //     LogErr() << "Param types don't match";
+            //     ParamValue no_value;
+            //     if (work->get_param_callback) {
+            //         work->get_param_callback(MAVLinkParameters::Result::WrongType, no_value);
+            //     }
+            // }
             _parent.unregister_timeout_handler(_timeout_cookie);
             // LogDebug() << "time taken: " <<
             // _parent.get_time().elapsed_since_s(_last_request_time);
@@ -915,24 +944,34 @@ void MAVLinkParameters::process_param_ext_request_read(const mavlink_message_t& 
 bool MAVLinkParameters::ParamValue::set_from_mavlink_param_value(
     const mavlink_param_value_t& mavlink_value)
 {
-    union {
-        float float_value;
-        int32_t int32_value;
-    } temp{};
-
-    temp.float_value = mavlink_value.param_value;
     switch (mavlink_value.param_type) {
-        case MAV_PARAM_TYPE_UINT32:
-        // FALLTHROUGH
-        case MAV_PARAM_TYPE_INT32:
-            _value = temp.int32_value;
+        case MAV_PARAM_TYPE_INT8: {
+            int8_t temp = mavlink_value.param_value;  
+            _value = temp; 
+            }
             break;
-        case MAV_PARAM_TYPE_REAL32:
-            _value = temp.float_value;
+
+        case MAV_PARAM_TYPE_INT16: {
+            int16_t temp = mavlink_value.param_value;  
+            _value = temp;
+            }
             break;
+    
+        case MAV_PARAM_TYPE_INT32: {
+            int32_t temp = mavlink_value.param_value;  
+            _value = temp; 
+            }
+            break;
+
+        case MAV_PARAM_TYPE_REAL32: {
+            float temp = mavlink_value.param_value;
+            _value = temp; 
+            }
+            break;
+
         default:
             // This would be worrying
-            LogErr() << "Error: unknown mavlink param type";
+            LogErr() << "Error: unknown mavlink param type: ";
             return false;
     }
     return true;
@@ -1150,13 +1189,30 @@ bool MAVLinkParameters::ParamValue::set_empty_type_from_xml(const std::string& t
 
 [[nodiscard]] MAV_PARAM_TYPE MAVLinkParameters::ParamValue::get_mav_param_type() const
 {
-    if (std::get_if<float>(&_value)) {
-        return MAV_PARAM_TYPE_REAL32;
+    if (std::get_if<uint8_t>(&_value)) {
+        return MAV_PARAM_TYPE_UINT8;
+    } else if (std::get_if<int8_t>(&_value)) {
+        return MAV_PARAM_TYPE_INT8;
+    } else if (std::get_if<uint16_t>(&_value)) {
+        return MAV_PARAM_TYPE_UINT16;
+    } else if (std::get_if<int16_t>(&_value)) {
+        return MAV_PARAM_TYPE_INT16;
+    } else if (std::get_if<uint32_t>(&_value)) {
+        return MAV_PARAM_TYPE_UINT32;
     } else if (std::get_if<int32_t>(&_value)) {
         return MAV_PARAM_TYPE_INT32;
-    } else {
-        LogErr() << "Unknown param type sent";
+    } else if (std::get_if<uint64_t>(&_value)) {
+        return MAV_PARAM_TYPE_UINT64;
+    } else if (std::get_if<int64_t>(&_value)) {
+        return MAV_PARAM_TYPE_INT64;
+    } else if (std::get_if<float>(&_value)) {
         return MAV_PARAM_TYPE_REAL32;
+    } else if (std::get_if<double>(&_value)) {
+        return MAV_PARAM_TYPE_REAL64;
+    } else {
+        LogErr() << "Unknown data type for param.";
+        assert(false);
+        return MAV_PARAM_TYPE_INT32;
     }
 }
 
@@ -1220,11 +1276,33 @@ bool MAVLinkParameters::ParamValue::set_as_same_type(const std::string& value_st
 
 [[nodiscard]] float MAVLinkParameters::ParamValue::get_4_float_bytes() const
 {
+    
     if (std::get_if<float>(&_value)) {
         return std::get<float>(_value);
     } else if (std::get_if<int32_t>(&_value)) {
         return *(reinterpret_cast<const float*>(&std::get<int32_t>(_value)));
-    } else {
+    } 
+    else {
+        LogErr() << "Unknown type";
+        assert(false);
+        return NAN;
+    }
+}
+
+[[nodiscard]] float MAVLinkParameters::ParamValue::get_4_float_bytes_apm() const
+{
+    
+    if (std::get_if<float>(&_value)) {
+        return std::get<float>(_value);
+    } else if (std::get_if<int32_t>(&_value)) {
+        return std::stof(get_string());
+    } else if (std::get_if<int16_t>(&_value)) {
+        return std::stof(get_string());
+    }
+    else if (std::get_if<int8_t>(&_value)) {
+        return std::stof(get_string()); 
+    }
+    else {
         LogErr() << "Unknown type";
         assert(false);
         return NAN;

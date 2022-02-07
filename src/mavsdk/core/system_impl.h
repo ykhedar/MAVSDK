@@ -141,9 +141,9 @@ public:
     MAV_TYPE get_vehicle_type() const;
 
     bool is_armed() const { return _armed; }
-
     MAVLinkParameters::Result set_param_float(const std::string& name, float value);
     MAVLinkParameters::Result set_param_int(const std::string& name, int32_t value);
+    MAVLinkParameters::Result set_param_int_raw(const std::string& name, int32_t value, const std::string& type);
     MAVLinkParameters::Result set_param_ext_float(const std::string& name, float value);
     MAVLinkParameters::Result set_param_ext_int(const std::string& name, int32_t value);
     std::map<std::string, MAVLinkParameters::ParamValue> get_all_params();
@@ -215,6 +215,7 @@ public:
 
     std::pair<MAVLinkParameters::Result, float> get_param_float(const std::string& name);
     std::pair<MAVLinkParameters::Result, int> get_param_int(const std::string& name);
+    // std::pair<MAVLinkParameters::Result, Param::IntParam> get_param_int_raw(const std::string& name);
     std::pair<MAVLinkParameters::Result, float> get_param_ext_float(const std::string& name);
     std::pair<MAVLinkParameters::Result, int> get_param_ext_int(const std::string& name);
 
@@ -333,6 +334,9 @@ private:
     std::optional<mavlink_message_t>
     process_autopilot_version_request(const MavlinkCommandReceiver::CommandLong& command);
 
+    std::optional<mavlink_message_t>
+    process_flight_info_request(const MavlinkCommandReceiver::CommandLong& command);
+
     static std::string component_name(uint8_t component_id);
     static System::ComponentType component_type(uint8_t component_id);
 
@@ -411,7 +415,9 @@ private:
 
     Timesync _timesync;
     Ping _ping;
-
+    
+    std::map<std::string, MAVLinkParameters::ParamValue> _param_map;
+    
     MAVLinkMissionTransfer _mission_transfer;
     RequestMessage _request_message;
 

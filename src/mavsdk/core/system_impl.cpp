@@ -28,6 +28,8 @@ SystemImpl::SystemImpl(MavsdkImpl& parent) :
     _request_message(_send_commands, _message_handler, _parent.timeout_handler)
 {
     _system_thread = new std::thread(&SystemImpl::system_thread, this);
+    // Cache the param store
+    _param_map = _params.get_all_params();
 }
 
 SystemImpl::~SystemImpl()
@@ -83,7 +85,7 @@ void SystemImpl::init(uint8_t system_id, uint8_t comp_id, bool connected)
     register_mavlink_command_handler(
         MAV_CMD_REQUEST_MESSAGE,
         [this](const MavlinkCommandReceiver::CommandLong& command) {
-            return make_command_ack_message(command, MAV_RESULT::MAV_RESULT_UNSUPPORTED);
+            return process_flight_info_request(command);
         },
         this);
 
@@ -300,6 +302,13 @@ SystemImpl::process_autopilot_version_request(const MavlinkCommandReceiver::Comm
     return {};
 }
 
+std::optional<mavlink_message_t>
+SystemImpl::process_flight_info_request(const MavlinkCommandReceiver::CommandLong& command)
+{
+    send_flight_information_request();
+    return make_command_ack_message(command, MAV_RESULT::MAV_RESULT_ACCEPTED);
+}
+
 std::string SystemImpl::component_name(uint8_t component_id)
 {
     switch (component_id) {
@@ -510,10 +519,17 @@ void SystemImpl::send_flight_information_request()
     // We don't care about an answer, we mostly care about receiving FLIGHT_INFORMATION.
     MavlinkCommandSender::CommandLong command{};
 
-    command.command = MAV_CMD_REQUEST_FLIGHT_INFORMATION;
-    command.params.maybe_param1 = 1.0f;
-    command.target_component_id = get_autopilot_id();
-
+    if (_autopilot == Autopilot::ArduPilot) {
+        command.command = MAV_CMD_REQUEST_MESSAGE;
+        command.confirmation = 0;
+        command.params.maybe_param1 = MAVLINK_MSG_ID_FLIGHT_INFORMATION;
+        command.target_component_id = get_autopilot_id();
+    }
+    else {
+        command.command = MAV_CMD_REQUEST_FLIGHT_INFORMATION;
+        command.params.maybe_param1 = 1.0f;
+        command.target_component_id = get_autopilot_id();
+    }
     send_command_async(command, nullptr);
 }
 
@@ -643,14 +659,35 @@ MAVLinkParameters::Result SystemImpl::set_param_float(const std::string& name, f
 MAVLinkParameters::Result SystemImpl::set_param_int(const std::string& name, int32_t value)
 {
     MAVLinkParameters::ParamValue param_value;
-    param_value.set<int32_t>(value);
+
+    if ( _param_map.find(name) != _param_map.end() ) {
+        param_value = _param_map.at(name);
+    } else {
+        // not found in the param map, let downstream functions handle the exception.
+        // FIXME: Need a better way to handle this.
+        param_value.set<int32_t>(value);
+    }
+    if (param_value.get_mav_param_type() == MAV_PARAM_TYPE_INT8) {param_value.set<int8_t>(value);}
+    else if (param_value.get_mav_param_type() == MAV_PARAM_TYPE_INT16) {param_value.set<int16_t>(value);}
+    else if (param_value.get_mav_param_type() == MAV_PARAM_TYPE_INT32) {param_value.set<int32_t>(value);}
+    else {std::cout << " Invalid Type "<< "\n";}
 
     return _params.set_param(name, param_value, false);
 }
 
 std::map<std::string, MAVLinkParameters::ParamValue> SystemImpl::get_all_params()
 {
-    return _params.get_all_params();
+    _param_map = _params.get_all_params();
+    // for (auto const& x : _param_map)
+    // {
+    //     std::cout << x.first  // ParamValue ID
+    //             << ':' 
+    //             << x.second // ParamValue Value 
+    //             << ':' 
+    //             << x.second.get_mav_param_type() // ParamValue Type
+    //             << std::endl;
+    // }
+    return _param_map;
 }
 
 MAVLinkParameters::Result SystemImpl::set_param_ext_float(const std::string& name, float value)
@@ -773,11 +810,48 @@ std::pair<MAVLinkParameters::Result, int> SystemImpl::get_param_int(const std::s
         name,
         value_type,
         [&prom](MAVLinkParameters::Result result, MAVLinkParameters::ParamValue param) {
-            int value = 0;
+            int tmp_value = 0;
             if (result == MAVLinkParameters::Result::Success) {
-                value = param.get<int32_t>();
+                //value = param.get<int32_t>();
+                //value = do_param_work(param);
+                auto type_string = param.typestr();
+                if (type_string == "uint8_t") {
+                    auto value = param.get<uint8_t>();
+                    tmp_value = value;
+                } else if (type_string == "int8_t") {
+                    auto value = param.get<int8_t>();
+                    tmp_value = value;
+                } else if (type_string == "uint16_t") {
+                    auto value = param.get<uint16_t>();
+                    tmp_value = value;
+                } else if (type_string == "int16_t") {
+                    auto value = param.get<int16_t>();
+                    tmp_value = value;
+                } else if (type_string == "uint32_t") {
+                    auto value = param.get<uint32_t>();
+                    tmp_value = value;
+                } else if (type_string == "int32_t") {
+                    auto value = param.get<int32_t>();
+                    tmp_value = value;
+                } else if (type_string == "uint64_t") {
+                    auto value = param.get<uint64_t>();
+                    tmp_value = value;
+                } else if (type_string == "int64_t") {
+                    auto value = param.get<int64_t>();
+                    tmp_value = value;
+                } else if (type_string == "float") {
+                    auto value = param.get<float>();
+                    tmp_value = value;
+                } else if (type_string == "double") {
+                    auto value = param.get<double>();
+                    tmp_value = value;
+                } else {
+                    LogErr() << "Unknown data type for param.";
+                    auto value = param.get<float>();
+                    tmp_value = value;
+                }
             }
-            prom.set_value(std::make_pair<>(result, value));
+            prom.set_value(std::make_pair<>(result, tmp_value));
         },
         this);
 
@@ -1038,21 +1112,28 @@ ardupilot::CopterMode SystemImpl::flight_mode_to_ardupilot_copter_mode(FlightMod
         case FlightMode::Acro:
             return ardupilot::CopterMode::Acro;
         case FlightMode::Hold:
-            return ardupilot::CopterMode::Alt_Hold;
+            return ardupilot::CopterMode::Loiter;
         case FlightMode::ReturnToLaunch:
             return ardupilot::CopterMode::RTL;
         case FlightMode::Land:
             return ardupilot::CopterMode::Land;
         case FlightMode::Manual:
+            return ardupilot::CopterMode::Stabilize;
         case FlightMode::FollowMe:
+            return ardupilot::CopterMode::Follow;
         case FlightMode::Unknown:
-        case FlightMode::Ready:
-        case FlightMode::Takeoff:
+            return ardupilot::CopterMode::Unknown;
+        //case FlightMode::Ready:
+        //case FlightMode::Takeoff:
         case FlightMode::Offboard:
+            return ardupilot::CopterMode::Guided;
         case FlightMode::Altctl:
+            return ardupilot::CopterMode::Alt_Hold;
         case FlightMode::Posctl:
-        case FlightMode::Rattitude:
+            return ardupilot::CopterMode::POS_HOLD;
+        //case FlightMode::Rattitude:
         case FlightMode::Stabilized:
+            return ardupilot::CopterMode::Stabilize;
         default:
             return ardupilot::CopterMode::Unknown;
     }
@@ -1174,14 +1255,25 @@ SystemImpl::FlightMode SystemImpl::to_flight_mode_from_ardupilot_copter_mode(uin
         case ardupilot::CopterMode::Acro:
             return FlightMode::Acro;
         case ardupilot::CopterMode::Alt_Hold:
+            return FlightMode::Altctl;
         case ardupilot::CopterMode::POS_HOLD:
+            return FlightMode::Posctl;
         case ardupilot::CopterMode::Flow_Hold:
+        case ardupilot::CopterMode::Loiter:
             return FlightMode::Hold;
         case ardupilot::CopterMode::RTL:
         case ardupilot::CopterMode::Auto_RTL:
             return FlightMode::ReturnToLaunch;
         case ardupilot::CopterMode::Land:
             return FlightMode::Land;
+        case ardupilot::CopterMode::Follow:
+            return FlightMode::FollowMe;
+        case ardupilot::CopterMode::Guided:
+            return FlightMode::Offboard;
+        case ardupilot::CopterMode::Stabilize:
+            return FlightMode::Stabilized;   // Stabilized also is the same.
+        case ardupilot::CopterMode::Unknown:
+            return FlightMode::Unknown;   // Stabilized also is the same.
         default:
             return FlightMode::Unknown;
     }

@@ -211,7 +211,7 @@ void MAVLinkMissionTransfer::UploadWorkItem::start()
         callback_and_reset(Result::NoMissionAvailable);
         return;
     }
-
+    
     int count = 0;
     for (const auto& item : _items) {
         if (count++ != item.seq) {

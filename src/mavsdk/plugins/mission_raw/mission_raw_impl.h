@@ -71,6 +71,9 @@ private:
     void process_mission_item_reached(const mavlink_message_t& message);
 
     void report_progress_current();
+    
+    void command_result_callback(
+        MavlinkCommandSender::Result command_result, const MissionRaw::ResultCallback& callback) const;
 
     void report_flight_mode_change(
         MissionRaw::ResultCallback callback, MavlinkCommandSender::Result result);

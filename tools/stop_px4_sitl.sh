@@ -44,4 +44,6 @@ pkill -9 -f mavproxy.py
 pkill -9 -f ardurover
 pkill -9 -f arducopter
 
+sleep 5
+
 exit 0

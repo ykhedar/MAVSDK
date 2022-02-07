@@ -228,7 +228,7 @@ const std::string InfoImpl::vendor_id_str(uint16_t vendor_id)
         case 0x26ac:
             return "3D Robotics Inc.";
         default:
-            return "undefined";
+            return "undefined id: " + std::to_string(vendor_id);
     }
 }
 
