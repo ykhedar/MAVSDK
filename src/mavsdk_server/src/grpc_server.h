@@ -4,7 +4,6 @@
 
 #include <grpcpp/server.h>
 #include <grpcpp/server_builder.h>
-#include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <memory>
 
 #include "mavsdk.h"

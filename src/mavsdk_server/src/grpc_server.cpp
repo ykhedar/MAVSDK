@@ -143,7 +143,6 @@ int GrpcServer::run()
 #endif
 
     grpc::EnableDefaultHealthCheckService(true);
-    grpc::reflection::InitProtoReflectionServerBuilderPlugin();
     _server = builder.BuildAndStart();
 
     if (_bound_port != 0) {
